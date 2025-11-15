@@ -3,4 +3,5 @@ project(
 	mdebase
 )
 
+add_subdirectory(mdm)
 add_subdirectory(milkwm)

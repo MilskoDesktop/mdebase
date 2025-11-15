@@ -13,6 +13,12 @@ add_executable(
 	${milkwm_SRC}
 )
 
+target_link_libraries(
+	mdm
+	PRIVATE
+	MDELib
+)
+
 include(GNUInstallDirs)
 install(
 	TARGETS milkwm
