@@ -16,6 +16,11 @@ int main(int argc, char** argv){
 		}
 	}
 
+	if(getuid() != 0){
+		fprintf(stderr, "MDM has to be ran as root\n");
+		return 1;
+	}
+
 	if(access(CONFDIR "/mdm", F_OK) != 0) mkdir(CONFDIR "/mdm", 0755);
 	if(access(CONFDIR "/mdm/mdmrc", F_OK) != 0) MDEFileCopy(DATADIR "/examples/mdm/mdmrc", CONFDIR "/mdm/mdmrc");
 
