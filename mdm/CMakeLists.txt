@@ -3,7 +3,6 @@ project(
 )
 
 find_package(PkgConfig)
-pkg_check_modules(X11 REQUIRED x11)
 
 file(
 	GLOB
@@ -16,26 +15,28 @@ add_executable(
 	${mdm_SRC}
 )
 
-target_include_directories(
-	mdm
-	PRIVATE
-	${X11_INCLUDE_DIRS}
-)
-
-target_link_directories(
-	mdm
-	PRIVATE
-	${X11_LIBRARY_DIRS}
-)
+PKGCONF_ADD(mdm x11)
+PKGCONF_ADD(mdm inih)
 
 target_link_libraries(
 	mdm
 	PRIVATE
-	${X11_LIBRARIES} MDELib Mw
+	MDELib Mw
 )
 
+
 include(GNUInstallDirs)
+configure_file(mdmrc.in mdmrc)
+
 install(
 	TARGETS mdm
 	RUNTIME DESTINATION ${CMAKE_INSTALL_SBINDIR}
+)
+install(
+	FILES ${CMAKE_CURRENT_BINARY_DIR}/mdmrc
+	DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/examples/mdm
+)
+install(
+	FILES mdm.png
+	DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/mdm
 )

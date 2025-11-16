@@ -1,7 +1,13 @@
 #include "mdm.h"
 
+#include "config.h"
+
+#include <MDE/File.h>
+
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
+#include <sys/stat.h>
 
 int is_launch_x = 1;
 
@@ -18,6 +24,9 @@ int main(int argc, char** argv){
 			}
 		}
 	}
+
+	if(access(CONFDIR "/mdm", F_OK) != 0) mkdir(CONFDIR "/mdm", 0755);
+	if(access(CONFDIR "/mdm/mdmrc", F_OK) != 0) MDEFileCopy(DATADIR "/examples/mdm/mdmrc", CONFDIR "/mdm/mdmrc");
 
 	if(is_launch_x){
 		if((st = launch_x()) != 0) return st;
