@@ -25,7 +25,7 @@ int main(int argc, char** argv){
 		if((st = launch_x()) != 0) return st;
 	}
 
-	init_x();
+	if((st = init_x()) != 0) return st;
 
 	login_window();
 }

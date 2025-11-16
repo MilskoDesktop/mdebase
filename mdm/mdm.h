@@ -4,6 +4,9 @@
 #include "config.h"
 
 #include <MDE/Foundation.h>
+#include <Mw/Milsko.h>
+
+#include <X11/Xlib.h>
 
 #include <string.h>
 #include <unistd.h>
@@ -13,14 +16,22 @@
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <pthread.h>
 
 /* xserver.c */
+extern pthread_t xthread;
+extern pthread_mutex_t xmutex;
+extern Display* xdisplay;
+
 int launch_x(void);
 int x_width(void);
 int x_height(void);
-void init_x(void);
+int init_x(void);
+void x_loop(void);
 
 /* login.c */
+extern MwWidget root;
+
 void login_window(void);
 
 /* config.c */

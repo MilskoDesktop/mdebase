@@ -1,6 +1,6 @@
 #include "mdm.h"
 
-#include <Mw/Milsko.h>
+MwWidget root;
 
 static void add_user(const char* name, void* user){
 	MwComboBoxAdd(user, -1, name);
@@ -11,10 +11,11 @@ void login_window(void){
 	MwLLPixmap p;
 
 	MwLibraryInit();
+
+	root = MwCreateWidget(NULL, "root", NULL, 0, 0, 0, 0);
 	
-	window = MwVaCreateWidget(MwWindowClass, "login", NULL, (x_width() - 366) / 2, (x_height() - 183) / 2, 366, 183,
-		MwNhasBorder, 1,
-		MwNinverted, 0,
+	window = MwVaCreateWidget(MwWindowClass, "login", root, (x_width() - 366) / 2, (x_height() - 183) / 2, 366, 183,
+		MwNtitle, "login",
 	NULL);
 	p = config_picture == NULL ? NULL : MwLoadImage(window, config_picture);
 	pic = MwVaCreateWidget(MwImageClass, "image", window, 10, 10, 80, 137,
@@ -41,7 +42,7 @@ void login_window(void){
 		MwNorientation, MwHORIZONTAL,
 	NULL);
 	shutdown = MwVaCreateWidget(MwButtonClass, "shutdown", window, 10, 10+137+10, 80, 18,
-		MwNtext, "Shutdown",
+		MwNtext, "Shut Down",
 	NULL);
 	reboot = MwVaCreateWidget(MwButtonClass, "reboot", window, 10+80+5, 10+137+10, 70, 18,
 		MwNtext, "Reboot",
@@ -54,5 +55,16 @@ void login_window(void){
 
 	MDEListUsers(add_user, usercombo);
 
-	MwLoop(window);
+	while(1){
+		int s = 0;
+
+		pthread_mutex_lock(&xmutex);
+		while(MwPending(root)){
+			if((s = MwStep(root)) != 0) break;
+		}
+		pthread_mutex_unlock(&xmutex);
+		if(s != 0) break;
+
+		MwTimeSleep(30);
+	}
 }
