@@ -25,7 +25,11 @@ int main(int argc, char** argv){
 		if((st = launch_x()) != 0) return st;
 	}
 
-	if((st = init_x()) != 0) return st;
+	while(1){
+		if((st = init_x()) != 0) return st;
 
-	login_window();
+		login_window();
+
+		/* TODO: run session */
+	}
 }

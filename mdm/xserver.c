@@ -51,6 +51,7 @@ static int wm_detect(Display* disp, XErrorEvent* ev){
 
 static void* x11_thread_routine(void* arg){
 	x_loop();
+	XCloseDisplay(xdisplay);
 }
 
 int init_x(void){
@@ -128,8 +129,24 @@ void x_loop(void){
 				MwNinverted, 0,
 			NULL);
 
+			XSelectInput(xdisplay, w.client, StructureNotifyMask);
+
 			arrput(frames, w);
 			pthread_mutex_unlock(&xmutex);
+		}else if(ev.type == UnmapNotify){
+			int i;
+
+			pthread_mutex_lock(&xmutex);
+			for(i = 0; i < arrlen(frames); i++){
+				if(frames[i].client == ev.xunmap.window){
+					MwDestroyWidget(frames[i].frame);
+					arrdel(frames, i);
+					break;
+				}
+			}
+			pthread_mutex_unlock(&xmutex);
+
+			break;
 		}
 	}
 }

@@ -1,14 +1,81 @@
 #include "mdm.h"
 
+#include <security/pam_appl.h>
+
 MwWidget root;
+MwWidget window, usercombo, passentry;
 
 static void add_user(const char* name, void* user){
 	MwComboBoxAdd(user, -1, name);
 }
 
+static int conversation(int num_msg, const struct pam_message** msg, struct pam_response** resp, void* appdata){
+	int i;
+
+	*resp = malloc(num_msg * sizeof(struct pam_response));
+
+	for(i = 0; i < num_msg; i++){
+		if(msg[i]->msg_style == PAM_PROMPT_ECHO_OFF){
+			const char* txt = MwGetText(passentry, MwNtext);
+			if(txt == NULL) txt = "";
+
+			resp[i]->resp_retcode = PAM_SUCCESS;
+			resp[i]->resp = MDEStringDuplicate(txt);
+		}else{
+			return PAM_CONV_ERR;
+		}
+	}
+
+	return PAM_SUCCESS;
+}
+
+static void try_login(MwWidget handle, void* user, void* client){
+	const char* username = MwComboBoxGet(usercombo, MwGetInteger(usercombo, MwNvalue));
+	struct pam_conv conv = {conversation, NULL};
+	pam_handle_t* pam;
+	int ret;
+	jmp_buf cleanup;
+	int err = 1;
+
+	(void)handle;
+	(void)user;
+	(void)client;
+
+	if(setjmp(cleanup)){
+		pam_end(pam, 0);
+
+		if(err){
+			MwSetText(passentry, MwNtext, "");
+		}else{
+			MwDestroyWidget(root);
+		}
+
+		return;
+	}
+
+	ret = pam_start("mdm", username, &conv, &pam);
+	if(ret != PAM_SUCCESS){
+		longjmp(cleanup, 1);
+	}
+
+	ret = pam_authenticate(pam, 0);
+	if(ret != PAM_SUCCESS){
+		longjmp(cleanup, 1);
+	}
+
+	ret = pam_acct_mgmt(pam, 0);
+	if(ret != PAM_SUCCESS){
+		longjmp(cleanup, 1);
+	}
+
+	err = 0;
+	longjmp(cleanup, 1);
+}
+
 void login_window(void){
-	MwWidget window, pic, userlabel, usercombo, passlabel, passentry, mainsep, sesslabel, sesscombo, fieldsep, shutdown, reboot, ok;
+	MwWidget pic, userlabel, passlabel, mainsep, sesslabel, sesscombo, fieldsep, shutdown, reboot, ok;
 	MwLLPixmap p;
+	void* out;
 
 	MwLibraryInit();
 
@@ -38,7 +105,7 @@ void login_window(void){
 		MwNtext, "Session Type:",
 	NULL);
 	sesscombo = MwCreateWidget(MwComboBoxClass, "sesscombo", window, 95, 10+16+5+18+5+16+5+18+10+16+5, 265, 18);
-	fieldsep = MwVaCreateWidget(MwSeparatorClass, "fieldsep", window, (366 - 362) / 2, 10+137, 362, 10,
+	fieldsep = MwVaCreateWidget(MwSeparatorClass, "fieldsep", window, 10, 10+137, 351, 10,
 		MwNorientation, MwHORIZONTAL,
 	NULL);
 	shutdown = MwVaCreateWidget(MwButtonClass, "shutdown", window, 10, 10+137+10, 80, 18,
@@ -52,6 +119,9 @@ void login_window(void){
 	NULL);
 
 	if(p != NULL) MwVaApply(pic, MwNpixmap, p, NULL);
+
+	MwAddUserHandler(ok, MwNactivateHandler, try_login, NULL);
+	MwAddUserHandler(passentry, MwNactivateHandler, try_login, NULL);
 
 	MDEListUsers(add_user, usercombo);
 
@@ -67,4 +137,6 @@ void login_window(void){
 
 		MwTimeSleep(30);
 	}
+
+	pthread_join(xthread, &out);
 }

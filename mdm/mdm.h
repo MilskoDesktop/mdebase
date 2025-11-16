@@ -3,11 +3,14 @@
 
 #include "config.h"
 
+/* Milsko */
 #include <MDE/Foundation.h>
 #include <Mw/Milsko.h>
 
+/* External */
 #include <X11/Xlib.h>
 
+/* Standard */
 #include <string.h>
 #include <unistd.h>
 #include <sys/stat.h>
@@ -16,6 +19,7 @@
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <setjmp.h>
 #include <pthread.h>
 
 /* xserver.c */
