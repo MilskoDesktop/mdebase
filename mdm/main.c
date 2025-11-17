@@ -2,8 +2,13 @@
 
 int is_launch_x = 1;
 
+gid_t gid;
+uid_t uid;
+char* run;
+
 int main(int argc, char** argv){
 	int i, st;
+	char* backup = NULL;
 	
 	for(i = 1; i < argc; i++){
 		if(argv[i][0] == '-'){
@@ -26,15 +31,37 @@ int main(int argc, char** argv){
 
 	parse_config();
 
-	if(is_launch_x){
-		if((st = launch_x()) != 0) return st;
-	}
+	if(getenv("DISPLAY") != NULL) backup = MDEStringDuplicate(getenv("DISPLAY"));
+	do{
+		pid_t pid;
 
-	while(1){
+		setenv("DISPLAY", backup == NULL ? "" : backup, 1);
+		if(is_launch_x && (st = launch_x()) != 0) return st;
+
 		if((st = init_x()) != 0) return st;
 
 		login_window();
 
-		/* TODO: run session */
-	}
+		if(run == NULL) continue;
+
+		if((pid = fork()) == 0){
+			struct passwd* pwd = getpwuid(uid);
+
+			setgid(gid);
+			setuid(uid);
+			chdir(pwd->pw_dir);
+			setenv("USER", pwd->pw_name, 1);
+			setenv("SHELL", pwd->pw_shell, 1);
+			setenv("HOME", pwd->pw_dir, 1);
+			_exit(system(run));
+		}else{
+			waitpid(pid, NULL, 0);
+		}
+
+		if(is_launch_x){
+			kill_x();
+		}
+	}while(is_launch_x);
+
+	if(backup != NULL) free(backup);
 }

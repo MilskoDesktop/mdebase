@@ -4,7 +4,7 @@
 
 #include "stb_ds.h"
 
-static pid_t x_server;
+static pid_t xserver;
 static int got_usr1;
 
 Display* xdisplay;
@@ -22,13 +22,15 @@ int launch_x(void){
 
 	signal(SIGUSR1, catch_usr1);
 
-	if((x_server = fork()) == 0){
+	/* TODO: Remove hardcoded DISPLAY */
+
+	if((xserver = fork()) == 0){
 		signal(SIGUSR1, SIG_IGN);
 		execlp("X", "X", ":0", NULL);
 		_exit(-1);
 	}else{
 		while(!got_usr1){
-			if(waitpid(x_server, NULL, WNOHANG) != 0){
+			if(waitpid(xserver, NULL, WNOHANG) != 0){
 				fprintf(stderr, "server died. what happened?\n");
 				return 1;
 			}
@@ -50,7 +52,7 @@ static int wm_detect(Display* disp, XErrorEvent* ev){
 }
 
 static void* x11_thread_routine(void* arg){
-	x_loop();
+	loop_x();
 	XCloseDisplay(xdisplay);
 }
 
@@ -74,7 +76,10 @@ int init_x(void){
 	XSync(xdisplay, False);
 	XSetErrorHandler(old);
 
-	if(wm_detected) return 1;
+	if(wm_detected){
+		fprintf(stderr, "WM or something seem to be running\n");
+		return 1;
+	}
 
 	pthread_mutex_init(&xmutex, NULL);
 
@@ -96,7 +101,7 @@ typedef struct window {
 	Window client;
 } window_t;
 
-void x_loop(void){
+void loop_x(void){
 	XEvent ev;
 	window_t* frames = NULL;
 
@@ -110,7 +115,7 @@ void x_loop(void){
 			pthread_mutex_lock(&xmutex);
 			for(i = 0; i < arrlen(frames); i++){
 				if(frames[i].frame->lowlevel->x11.window == ev.xmaprequest.window){
-					XReparentWindow(xdisplay, frames[i].client, ev.xmaprequest.window, MwDefaultBorderWidth(root), MwDefaultBorderWidth(root));
+					XReparentWindow(xdisplay, frames[i].client, frames[i].frame->lowlevel->x11.window, MwDefaultBorderWidth(root), MwDefaultBorderWidth(root));
 					XMapWindow(xdisplay, ev.xmaprequest.window);
 					XMapWindow(xdisplay, frames[i].client);
 					break;
@@ -135,18 +140,25 @@ void x_loop(void){
 			pthread_mutex_unlock(&xmutex);
 		}else if(ev.type == UnmapNotify){
 			int i;
+			int c = 0;
 
 			pthread_mutex_lock(&xmutex);
 			for(i = 0; i < arrlen(frames); i++){
 				if(frames[i].client == ev.xunmap.window){
 					MwDestroyWidget(frames[i].frame);
 					arrdel(frames, i);
+					c = 1;
 					break;
 				}
 			}
 			pthread_mutex_unlock(&xmutex);
 
-			break;
+			if(c) break;
 		}
 	}
+}
+
+void kill_x(void){
+	kill(xserver, SIGINT);
+	waitpid(xserver, NULL, 0);
 }

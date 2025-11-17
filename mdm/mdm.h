@@ -22,6 +22,11 @@
 #include <setjmp.h>
 #include <pthread.h>
 
+/* main.c */
+extern gid_t gid;
+extern uid_t uid;
+extern char* run;
+
 /* xserver.c */
 extern pthread_t xthread;
 extern pthread_mutex_t xmutex;
@@ -31,7 +36,8 @@ int launch_x(void);
 int x_width(void);
 int x_height(void);
 int init_x(void);
-void x_loop(void);
+void loop_x(void);
+void kill_x(void);
 
 /* login.c */
 extern MwWidget root;
