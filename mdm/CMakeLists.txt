@@ -1,3 +1,5 @@
+include(MDEBase)
+include(MDEPkgConfig)
 setup_project(mdm ${CMAKE_INSTALL_SBINDIR})
 
 pkg_config_add(mdm x11)

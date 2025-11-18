@@ -1,3 +1,4 @@
+include(MDEBase)
 setup_project(mpanel ${CMAKE_INSTALL_BINDIR})
 
 if(${CMAKE_SYSTEM_NAME} STREQUAL Linux)
