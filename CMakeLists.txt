@@ -6,3 +6,4 @@ project(
 add_subdirectory(mdm)
 add_subdirectory(milkwm)
 add_subdirectory(mpanel)
+add_subdirectory(maudioserver)
