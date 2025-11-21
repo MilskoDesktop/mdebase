@@ -190,11 +190,7 @@ void login_window(void) {
 
 	root = MwCreateWidget(NULL, "root", NULL, 0, 0, 0, 0);
 
-<<<<<<< HEAD
-	window	  = MwVaCreateWidget(MwWindowClass, "login", root, (x_width() - 366) / 2, (x_height() - (183 + 32 + 5)) / 2, 366, 183 + 32 + 5,
-=======
 	window	  = MwVaCreateWidget(MwWindowClass, "login", root, (x_width() - 366) / 2, (x_height() - 183) / 2, 366, 183,
->>>>>>> 5ae06b1 (fix)
 				     MwNtitle, "login",
 				     NULL);
 	p	  = config_picture == NULL ? NULL : MwLoadImage(window, config_picture);
