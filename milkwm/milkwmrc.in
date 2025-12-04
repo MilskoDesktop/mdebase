@@ -1,0 +1,16 @@
+Window: {
+	TitleBar: {
+		Buttons: {
+			# Ordered from left to right
+			Left = [
+				"Close"
+			];
+
+			# Ordered from right to left
+			Right = [
+				"Maximize",
+				"Iconify"
+			];
+		};
+	};
+};

@@ -3,6 +3,9 @@ project(
 	mdebase
 )
 
+include(GNUInstallDirs)
+configure_file(wizard.sh.in wizard.sh)
+
 add_subdirectory(mdm)
 add_subdirectory(milkwm)
 add_subdirectory(mpanel)
