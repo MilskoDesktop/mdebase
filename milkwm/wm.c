@@ -5,6 +5,10 @@ static MwWidget root;
 
 typedef struct wmframe {
 	MwWidget titlebar;
+	MwWidget title;
+
+	int left_space;
+	int right_space;
 } wmframe_t;
 
 void loop_wm(void) {
@@ -45,6 +49,36 @@ static void resize(MwWidget handle, void* user, void* client) {
 		  MwNwidth, ww - MwDefaultBorderWidth(handle) * 2,
 		  MwNheight, TitleBarHeight + MwDefaultBorderWidth(handle) * 2,
 		  NULL);
+
+	MwVaApply(f->title,
+		  MwNx, MwDefaultBorderWidth(f->titlebar) + f->left_space + 8,
+		  MwNy, MwDefaultBorderWidth(f->titlebar),
+		  MwNwidth, MwGetInteger(f->titlebar, MwNwidth) - MwDefaultBorderWidth(f->titlebar) * 2 - f->left_space - f->right_space - 16,
+		  MwNheight, MwGetInteger(f->titlebar, MwNheight) - MwDefaultBorderWidth(f->titlebar) * 2,
+		  NULL);
+}
+
+static int alignment(const char* str) {
+	if(strcmp(str, "Left") == 0) return MwALIGNMENT_BEGINNING;
+	if(strcmp(str, "Right") == 0) return MwALIGNMENT_END;
+	if(strcmp(str, "Center") == 0) return MwALIGNMENT_CENTER;
+
+	return MwALIGNMENT_CENTER;
+}
+
+static void apply_config(MwWidget wnd) {
+	wmframe_t*  f = wnd->opaque;
+	const char* str;
+
+	if(config_lookup_string(&wm_config, "Window.TitleBar.Align", &str)) {
+		MwVaApply(f->title,
+			  MwNalignment, alignment(str),
+			  NULL);
+	} else {
+		MwVaApply(f->title,
+			  MwNalignment, MwALIGNMENT_CENTER,
+			  NULL);
+	}
 }
 
 MwWidget wm_frame(int w, int h) {
@@ -60,12 +94,19 @@ MwWidget wm_frame(int w, int h) {
 				       NULL);
 	wnd->opaque = f;
 
+	f->left_space  = TitleBarHeight;
+	f->right_space = 0;
+
 	f->titlebar = MwVaCreateWidget(MwFrameClass, "titlebar", wnd, 0, 0, 0, 0,
 				       MwNhasBorder, 1,
 				       MwNinverted, 1,
 				       NULL);
 
+	f->title = MwCreateWidget(MwLabelClass, "title", f->titlebar, 0, 0, 0, 0);
+
 	MwCreateWidget(MwButtonClass, "button", f->titlebar, MwDefaultBorderWidth(wnd), MwDefaultBorderWidth(wnd), TitleBarHeight, TitleBarHeight);
+
+	apply_config(wnd);
 
 	resize(wnd, NULL, NULL);
 
@@ -74,5 +115,19 @@ MwWidget wm_frame(int w, int h) {
 	return wnd;
 }
 
+void wm_destroy(MwWidget widget) {
+	pthread_mutex_lock(&xmutex);
+	free(widget->opaque);
+	MwDestroyWidget(widget);
+	pthread_mutex_unlock(&xmutex);
+}
+
 void wm_set_name(MwWidget widget, const char* name) {
+	wmframe_t* f = widget->opaque;
+
+	pthread_mutex_lock(&xmutex);
+	MwVaApply(f->title,
+		  MwNtext, name,
+		  NULL);
+	pthread_mutex_unlock(&xmutex);
 }

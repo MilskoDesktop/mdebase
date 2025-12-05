@@ -8,11 +8,15 @@
 #include <Mw/Milsko.h>
 
 /* External */
+#include <libconfig.h>
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 #include <X11/Xatom.h>
 
 /* Standard */
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <pthread.h>
 
 #define TitleBarHeight 16
@@ -28,6 +32,13 @@ void loop_x(void);
 /* wm.c */
 void	 loop_wm(void);
 MwWidget wm_frame(int w, int h);
+void	 wm_destroy(MwWidget widget);
 void	 wm_set_name(MwWidget widget, const char* name);
+
+/* config.c */
+extern config_t wm_config;
+
+void wm_config_init(void);
+void wm_config_read(void);
 
 #endif

@@ -8,12 +8,21 @@ Display*	xdisplay;
 pthread_t	xthread;
 pthread_mutex_t xmutex;
 
-static int wm_detected = 0;
-static int wm_detect(Display* disp, XErrorEvent* ev) {
-	wm_detected = 1;
+static void* old_handler;
+static int   error_happened = 0;
+static int   ignore_error(Display* disp, XErrorEvent* ev) {
+	  error_happened = 1;
+	  return 0;
 }
 
-static int ignore_error(Display* disp, XErrorEvent* ev) {
+static void begin_error(void) {
+	old_handler    = XSetErrorHandler(ignore_error);
+	error_happened = 0;
+}
+
+static void end_error(void) {
+	XSync(xdisplay, False);
+	XSetErrorHandler(old_handler);
 }
 
 static void* x11_thread_routine(void* arg) {
@@ -40,12 +49,11 @@ int init_x(void) {
 
 	xdisplay = XOpenDisplay(NULL);
 
-	old = XSetErrorHandler(wm_detect);
+	begin_error();
 	XSelectInput(xdisplay, DefaultRootWindow(xdisplay), SubstructureRedirectMask);
-	XSync(xdisplay, False);
-	XSetErrorHandler(old);
+	end_error();
 
-	if(wm_detected) return 1;
+	if(error_happened) return 1;
 
 	nofocus = XCreateSimpleWindow(xdisplay, DefaultRootWindow(xdisplay), -10, -10, 1, 1, 0, 0, 0);
 	XChangeWindowAttributes(xdisplay, nofocus, CWOverrideRedirect, &xswa);
@@ -75,7 +83,7 @@ static void save(Window w) {
 	XAddToSaveSet(xdisplay, w);
 }
 
-int parent_eq(Window wnd, Window might_be_parent) {
+static int parent_eq(Window wnd, Window might_be_parent) {
 	Window	     root, parent;
 	Window*	     children;
 	unsigned int nchildren;
@@ -88,6 +96,24 @@ int parent_eq(Window wnd, Window might_be_parent) {
 	return 0;
 }
 
+static void set_name(Window wnd) {
+	Atom	       type;
+	int	       format;
+	unsigned long  nitem, after;
+	unsigned char* buf;
+	Atom	       atom = XInternAtom(xdisplay, "WM_NAME", False);
+	int	       i;
+
+	for(i = 0; i < arrlen(windows); i++) {
+		if(windows[i].client == wnd) {
+			if(XGetWindowProperty(xdisplay, wnd, atom, 0, 1024, False, XA_STRING, &type, &format, &nitem, &after, &buf) == Success) {
+				wm_set_name(windows[i].frame, buf);
+				XFree(buf);
+			}
+		}
+	}
+}
+
 void loop_x(void) {
 	XEvent	     ev;
 	Window	     root, parent;
@@ -95,23 +121,28 @@ void loop_x(void) {
 	unsigned int nchildren;
 	int	     i;
 
+	begin_error();
+
 	XQueryTree(xdisplay, DefaultRootWindow(xdisplay), &root, &parent, &children, &nchildren);
 	if(children != NULL) {
 		for(i = 0; i < nchildren; i++) {
 			window_t	  w;
 			XWindowAttributes xwa;
 
-			XGetWindowAttributes(xdisplay, children[i], &xwa);
-			if(xwa.override_redirect || xwa.map_state != IsViewable) continue;
+			if(XGetWindowAttributes(xdisplay, children[i], &xwa)) {
+				if(xwa.override_redirect || xwa.map_state != IsViewable) continue;
 
-			w.frame	 = wm_frame(xwa.width, xwa.height);
-			w.client = children[i];
+				w.frame	 = wm_frame(xwa.width, xwa.height);
+				w.client = children[i];
 
-			XUnmapWindow(xdisplay, children[i]);
+				XUnmapWindow(xdisplay, children[i]);
 
-			save(w.client);
+				save(w.client);
 
-			arrput(windows, w);
+				arrput(windows, w);
+
+				set_name(w.client);
+			}
 		}
 		XFree(children);
 	}
@@ -181,11 +212,12 @@ void loop_x(void) {
 			int		  ret = 0;
 			XWindowAttributes xwa;
 
-			XGetWindowAttributes(xdisplay, ev.xmaprequest.window, &xwa);
+			if(!XGetWindowAttributes(xdisplay, ev.xmaprequest.window, &xwa)) continue;
 
 			for(i = 0; i < arrlen(windows); i++) {
 				if(windows[i].frame->lowlevel->x11.window == ev.xmaprequest.window) break;
 				if(windows[i].client == ev.xmaprequest.window) {
+					/* what? */
 					ret = 1;
 					break;
 				}
@@ -193,15 +225,28 @@ void loop_x(void) {
 			if(ret) continue;
 			if(i != arrlen(windows)) {
 				XWindowAttributes xwa;
-				XGetWindowAttributes(xdisplay, windows[i].client, &xwa);
+				if(!XGetWindowAttributes(xdisplay, windows[i].client, &xwa)) {
+					wm_destroy(windows[i].frame);
+					arrdel(windows, i);
+					continue;
+				}
 
 				XMoveWindow(xdisplay, windows[i].frame->lowlevel->x11.window, xwa.x, xwa.y);
 
 				XMapWindow(xdisplay, ev.xmaprequest.window);
 				pthread_mutex_lock(&xmutex);
-				XReparentWindow(xdisplay, windows[i].client, windows[i].frame->lowlevel->x11.window, MwDefaultBorderWidth(windows[i].frame), MwDefaultBorderWidth(windows[i].frame) * 3 + TitleBarHeight);
+				if(!XReparentWindow(xdisplay, windows[i].client, windows[i].frame->lowlevel->x11.window, MwDefaultBorderWidth(windows[i].frame), MwDefaultBorderWidth(windows[i].frame) * 3 + TitleBarHeight)) {
+					pthread_mutex_unlock(&xmutex);
+					wm_destroy(windows[i].frame);
+					arrdel(windows, i);
+					continue;
+				}
 				pthread_mutex_unlock(&xmutex);
-				XMapWindow(xdisplay, windows[i].client);
+				if(!XMapWindow(xdisplay, windows[i].client)) {
+					wm_destroy(windows[i].frame);
+					arrdel(windows, i);
+					continue;
+				}
 				XFlush(xdisplay);
 				continue;
 			}
@@ -211,6 +256,8 @@ void loop_x(void) {
 			save(w.client);
 
 			arrput(windows, w);
+
+			set_name(w.client);
 		} else if(ev.type == PropertyNotify) {
 			int i;
 			for(i = 0; i < arrlen(windows); i++) {
@@ -221,15 +268,7 @@ void loop_x(void) {
 			if(arrlen(windows) == i) continue;
 
 			if(ev.xproperty.atom == XInternAtom(xdisplay, "WM_NAME", False)) {
-				Atom	       type;
-				int	       format;
-				unsigned long  nitem, after;
-				unsigned char* buf;
-
-				if(XGetWindowProperty(xdisplay, ev.xproperty.window, ev.xproperty.atom, 0, 1024, False, XA_STRING, &type, &format, &nitem, &after, &buf) == Success) {
-					wm_set_name(windows[i].frame, buf);
-					XFree(buf);
-				}
+				set_name(windows[i].client);
 			}
 		} else if(ev.type == MapNotify) {
 			int i;
@@ -243,19 +282,15 @@ void loop_x(void) {
 			int i;
 			for(i = 0; i < arrlen(windows); i++) {
 				if(windows[i].client == ev.xunmap.window) {
-					void*		  old;
 					XWindowAttributes xwa;
 
 					XGetWindowAttributes(xdisplay, windows[i].frame->lowlevel->x11.window, &xwa);
 
 					pthread_mutex_lock(&xmutex);
-					old = XSetErrorHandler(ignore_error);
 					XReparentWindow(xdisplay, windows[i].client, DefaultRootWindow(xdisplay), xwa.x, xwa.y);
-					XSync(xdisplay, False);
-					XSetErrorHandler(old);
-
-					MwDestroyWidget(windows[i].frame);
 					pthread_mutex_unlock(&xmutex);
+
+					wm_destroy(windows[i].frame);
 					arrdel(windows, i);
 					break;
 				}
@@ -278,4 +313,5 @@ void loop_x(void) {
 			}
 		}
 	}
+	end_error();
 }

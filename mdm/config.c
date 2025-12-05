@@ -15,5 +15,5 @@ static int dumper(void* user, const char* section, const char* name, const char*
 }
 
 void parse_config(void) {
-	ini_parse(CONFDIR "/mdm/mdmrc", dumper, NULL);
+	ini_parse(SYSCONFDIR "/mdm/mdmrc", dumper, NULL);
 }
