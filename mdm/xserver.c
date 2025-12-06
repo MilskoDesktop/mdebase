@@ -115,8 +115,8 @@ void loop_x(void) {
 			for(i = 0; i < arrlen(frames); i++) {
 				if(frames[i].frame->lowlevel->x11.window == ev.xmaprequest.window) {
 					XMapWindow(xdisplay, ev.xmaprequest.window);
-					XMapWindow(xdisplay, frames[i].client);
 					XReparentWindow(xdisplay, frames[i].client, frames[i].frame->lowlevel->x11.window, MwDefaultBorderWidth(root), MwDefaultBorderWidth(root));
+					XMapWindow(xdisplay, frames[i].client);
 					XFlush(xdisplay);
 					break;
 				}
